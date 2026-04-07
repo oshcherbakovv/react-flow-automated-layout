@@ -1,13 +1,13 @@
 {
-  "name": "@jalez/react-flow-automated-layout",
-  "version": "1.2.6",
+  "name": "@oscherbakov/react-flow-automated-layout",
+  "version": "1.3.10",
   "type": "module",
   "license": "MIT",
   "description": "A React library for automated layout of nested node graphs with parent-child relationships using React Flow",
-  "author": "Jaakko Rajala",
+  "author": "oshcherbakov",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jalez/react-flow-automated-layout.git"
+    "url": "git+https://github.com/oshcherbakovv/react-flow-automated-layout.git"
   },
   "keywords": [
     "typescript",

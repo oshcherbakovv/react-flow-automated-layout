@@ -2,9 +2,10 @@ import { useCallback } from 'react';
 import { Node, Edge } from '@xyflow/react';
 import { LayoutDirection, LayoutEngine } from '../context/LayoutContext';
 import { convertDirection } from '../utils/layoutProviderUtils';
-import { organizeLayoutRecursively, organizeLayoutByTreeDepth } from '../core/HierarchicalLayoutOrganizer';
+import { organizeLayoutRecursively, organizeLayoutByTreeDepth, layoutSingleContainer } from '../core/HierarchicalLayoutOrganizer';
 import { buildNodeTree } from '../utils/treeUtils';
 import filterSelectedParentNodes from '../utils/filterSelectedParentNodes';
+import { createGlobalTemporaryEdgesMap } from '../utils/temporaryEdgeMapCreator';
 
 // Layout configuration object for simplification
 export interface LayoutConfig {
@@ -245,5 +246,90 @@ export const useLayoutCalculation = (
     noParentKey
   ]);
 
-  return { calculateLayout };
+  /**
+   * Apply layout to a container and all of its nested sub-containers,
+   * without propagating changes up the parent hierarchy.
+   * Processes the subtree bottom-up (deepest containers first) so that
+   * each parent container sees the correct dimensions of its children.
+   */
+  const calculateContainerLayout = useCallback(async (
+    containerId: string,
+    nodes: Node[],
+    edges: Edge[],
+    signal?: AbortSignal
+  ): Promise<{ nodes: Node[]; edges: Edge[] }> => {
+    if (signal?.aborted) return { nodes, edges };
+
+    const dagreDirection = convertDirection(direction);
+    const margin = parentResizingOptions.padding.horizontal;
+
+    const filteredNodes = layoutHidden ? nodes : nodes.filter(n => !n.hidden);
+    const visibleNodeIds = new Set(filteredNodes.map(n => n.id));
+    const filteredEdges = layoutHidden
+      ? edges
+      : edges.filter(e => visibleNodeIds.has(e.source) && visibleNodeIds.has(e.target));
+
+    const temporaryEdgesByParent = createGlobalTemporaryEdgesMap(filteredEdges, nodeIdWithNode, noParentKey);
+
+    // Collect all containers in the subtree deepest-first so each parent
+    // container sees correct child dimensions before being laid out itself.
+    const getContainersBottomUp = (id: string): string[] => {
+      const result: string[] = [];
+      const children = nodeParentIdMapWithChildIdSet.get(id);
+      if (children) {
+        for (const childId of children) {
+          if (nodeParentIdMapWithChildIdSet.has(childId)) {
+            result.push(...getContainersBottomUp(childId));
+          }
+        }
+      }
+      result.push(id);
+      return result;
+    };
+
+    const containerOrder = getContainersBottomUp(containerId);
+    const allUpdatedNodeMap = new Map<string, Node>();
+
+    for (const cId of containerOrder) {
+      if (signal?.aborted) return { nodes, edges };
+
+      const { updatedNodes, udpatedParentNode } = await layoutSingleContainer(
+        cId,
+        dagreDirection,
+        nodeParentIdMapWithChildIdSet,
+        nodeIdWithNode,
+        filteredEdges,
+        margin,
+        nodeSpacing,
+        layerSpacing,
+        nodeWidth,
+        nodeHeight,
+        undefined,
+        layoutHidden,
+        temporaryEdgesByParent,
+        noParentKey
+      );
+
+      updatedNodes.forEach(n => allUpdatedNodeMap.set(n.id, n));
+      // Spread to create a new reference — fixParentNodeDimensions mutates in place,
+      // so without this React Flow would receive the same object reference and skip the re-render.
+      if (udpatedParentNode) allUpdatedNodeMap.set(udpatedParentNode.id, { ...udpatedParentNode });
+    }
+
+    const finalNodes = nodes.map(n => allUpdatedNodeMap.get(n.id) ?? n);
+    return { nodes: finalNodes, edges };
+  }, [
+    direction,
+    parentResizingOptions.padding.horizontal,
+    nodeParentIdMapWithChildIdSet,
+    nodeIdWithNode,
+    nodeSpacing,
+    layerSpacing,
+    nodeWidth,
+    nodeHeight,
+    layoutHidden,
+    noParentKey,
+  ]);
+
+  return { calculateLayout, calculateContainerLayout };
 };

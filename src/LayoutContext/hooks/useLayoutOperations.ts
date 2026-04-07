@@ -8,6 +8,7 @@ interface UseLayoutOperationsProps {
     selectedNodes: Node[];
     layoutHidden: boolean;
     calculateLayout: (nodes: Node[], edges: Edge[], selectedNodes: Node[], signal: AbortSignal) => Promise<{ nodes: Node[]; edges: Edge[] }>;
+    calculateContainerLayout: (containerId: string, nodes: Node[], edges: Edge[], signal?: AbortSignal) => Promise<{ nodes: Node[]; edges: Edge[] }>;
     updateNodes?: (nodes: Node[]) => void;
     updateEdges?: (edges: Edge[]) => void;
     setLayoutInProgress: (inProgress: boolean) => void;
@@ -21,6 +22,7 @@ export function useLayoutOperations({
     selectedNodes,
     layoutHidden,
     calculateLayout,
+    calculateContainerLayout,
     updateNodes,
     updateEdges,
     setLayoutInProgress,
@@ -115,8 +117,56 @@ export function useLayoutOperations({
         setLayerSpacing
     ]);
 
+    const applyContainerLayout = useCallback(async (
+        containerId: string
+    ): Promise<{ nodes: Node[]; edges: Edge[] }> => {
+        if (currentLayoutAbortControllerRef.current) {
+            currentLayoutAbortControllerRef.current.abort();
+        }
+        const abortController = new AbortController();
+        currentLayoutAbortControllerRef.current = abortController;
+
+        if (nodes.length === 0) return { nodes, edges };
+
+        try {
+            setLayoutInProgress(true);
+
+            if (abortController.signal.aborted) return { nodes, edges };
+
+            const result = await calculateContainerLayout(containerId, nodes, edges, abortController.signal);
+
+            if (abortController.signal.aborted) return { nodes, edges };
+
+            if (currentLayoutAbortControllerRef.current === abortController) {
+                if (updateNodes) {
+                    updateNodes(result.nodes);
+                } else if (reactFlowInstance?.setNodes) {
+                    reactFlowInstance.setNodes(result.nodes);
+                }
+                if (updateEdges) {
+                    updateEdges(result.edges);
+                } else if (reactFlowInstance?.setEdges) {
+                    reactFlowInstance.setEdges(result.edges);
+                }
+            }
+
+            return result;
+        } catch (error) {
+            if (!abortController.signal.aborted) {
+                console.error("Error applying container layout:", error);
+            }
+            return { nodes, edges };
+        } finally {
+            if (currentLayoutAbortControllerRef.current === abortController) {
+                setLayoutInProgress(false);
+                currentLayoutAbortControllerRef.current = null;
+            }
+        }
+    }, [nodes, edges, calculateContainerLayout, updateNodes, updateEdges, reactFlowInstance, setLayoutInProgress]);
+
     return {
         applyLayout,
+        applyContainerLayout,
         pendingSpacingUpdateRef
     };
 }

@@ -104,7 +104,7 @@ export function LayoutProvider({
     });
 
     // Use layout calculation hook
-    const { calculateLayout } = useLayoutCalculation(
+    const { calculateLayout, calculateContainerLayout } = useLayoutCalculation(
         layoutEngines,
         direction,
         algorithm,
@@ -119,12 +119,13 @@ export function LayoutProvider({
         noParentKey
     );
 
-    const { applyLayout } = useLayoutOperations({
+    const { applyLayout, applyContainerLayout } = useLayoutOperations({
         nodes,
         edges,
         selectedNodes,
         layoutHidden,
         calculateLayout,
+        calculateContainerLayout,
         updateNodes,
         updateEdges,
         setLayoutInProgress,
@@ -190,6 +191,7 @@ export function LayoutProvider({
         setParentResizingOptions,
         setLayoutEngineOptions,
         applyLayout,
+        applyContainerLayout,
         clearLayoutCache: () => { },
         registerLayoutEngine,
     };

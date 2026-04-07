@@ -10,6 +10,7 @@ import SelectFlowLayout from "./04-Select/SelectExample";
 import CustomControlsExample from "./05-Custom-Controls/CustomControlsExample";
 import ParentSwitchExample from "./06-Parent-Switch/ParentSwitchExample";
 import CyclicContainersExample from "./07-Cyclic-Containers/CyclicContainersExample";
+import ContainerLayoutExample from "./08-Container-Layout/ContainerLayoutExample";
 
 // Example type definition
 type Example = {
@@ -62,6 +63,12 @@ const examples: Example[] = [
     name: "07 - Cyclic Containers",
     description: "Reproduces a reciprocal cross-container dependency where A1 -> B1 and B1 -> A2 collapse into A -> B and B -> A at the shared parent level.",
     component: CyclicContainersExample,
+  },
+  {
+    id: "08-container-layout",
+    name: "08 - Container Layout",
+    description: "Demonstrates applyContainerLayout — re-organises only the immediate children of one specific container without touching siblings or parent containers.",
+    component: ContainerLayoutExample,
   },
 ];
 

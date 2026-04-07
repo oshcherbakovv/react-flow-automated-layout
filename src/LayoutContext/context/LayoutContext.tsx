@@ -72,6 +72,7 @@ export interface LayoutContextState {
   
   // Layout application
   applyLayout: (nodes?: Node[], edges?: Edge[]) => Promise<{nodes: Node[], edges: Edge[]}> | undefined;
+  applyContainerLayout: (containerId: string) => Promise<{nodes: Node[], edges: Edge[]}>;
   clearLayoutCache: () => void;
   
   // Layout engine registration
